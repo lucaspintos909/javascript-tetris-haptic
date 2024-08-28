@@ -169,6 +169,58 @@
     //-------------------------------------------------------------------------
     // GAME LOOP
     //-------------------------------------------------------------------------
+    let lastActionTime = 0;
+    const actionDelay = 200;
+
+    
+    // Function to continuously check the state of connected gamepads
+    function pollGamepad() {
+      // Get all connected gamepads
+      const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+      // If no gamepads are connected, exit the function
+      if (!gamepads) return;
+
+      // Assume the first gamepad in the array is the one being used
+      const gp = gamepads[0]; 
+
+      // If a gamepad is detected
+      if (gp) {
+        // Get the current timestamp
+        const now = Date.now();
+
+        // Map D-Pad buttons (Arrow keys)
+        const dPadUp = gp.buttons[12].pressed; 
+        const dPadDown = gp.buttons[13].pressed;
+        const dPadLeft = gp.buttons[14].pressed;
+        const dPadRight = gp.buttons[15].pressed;
+        const buttonX = gp.buttons[0].pressed; // "X" Button 
+
+        // Prevent overly rapid consecutive actions by checking if enough time has passed
+        if (now - lastActionTime > actionDelay) {
+          // Move the Tetris piece based on button presses
+          if (dPadLeft) {
+              actions.push(DIR.LEFT);
+              lastActionTime = now; // Update the last action time
+          }
+          if (dPadRight) {
+              actions.push(DIR.RIGHT);
+              lastActionTime = now;
+          }
+          if (dPadDown) {
+              actions.push(DIR.DOWN);
+              lastActionTime = now;
+          }
+          // Rotate the Tetris piece with either Up arrow or "X" button
+          if (dPadUp || buttonX) { 
+              actions.push(DIR.UP);
+              lastActionTime = now;
+          }
+        }
+      }
+
+      // Use requestAnimationFrame for smooth animation and to continue checking gamepad state
+      requestAnimationFrame(pollGamepad);
+    }
 
     function run() {
 
@@ -188,6 +240,7 @@
       resize(); // setup all our sizing information
       reset();  // reset the per-game variables
       frame();  // start the first frame
+      pollGamepad(); // Iniciar la verificación continua del gamepad
 
     }
 
@@ -295,6 +348,16 @@
         current.x = x;
         current.y = y;
         invalidate();
+
+        // Check for a collision only when moving DOWN
+        if (!unoccupied(current.type, x, y + 1, current.dir) && dir === DIR.DOWN) {
+          // If a collision would occur if the piece moved one more unit down,
+          // trigger the gamepad vibration after a short delay
+          setTimeout(() => {
+              vibrateGamepad(100, 0, 1); 
+          }, 30);
+        }
+
         return true;
       }
       else {
@@ -350,7 +413,41 @@
       }
     }
 
+    // Function to trigger haptic feedback on a connected gamepad
+    function vibrateGamepad(duration = 200, weakMagnitude = 0, strongMagnitude = 0) {
+        // Get the first connected gamepad
+        const gamepad = navigator.getGamepads()[0]; 
+
+        // Check if a gamepad is connected and if it supports vibration
+        if (gamepad && gamepad.vibrationActuator) {
+            // Use the gamepad's vibration actuator to play a "dual-rumble" effect
+            gamepad.vibrationActuator.playEffect("dual-rumble", {
+                startDelay: 0,                    // Start vibration immediately
+                duration: duration,               // Duration of the vibration in milliseconds
+                weakMagnitude: weakMagnitude,     // Intensity of the weak rumble motor (0-1)
+                strongMagnitude: strongMagnitude  // Intensity of the strong rumble motor (0-1)
+            });
+        }
+        // If no gamepad is found or it doesn't support vibration, do nothing
+    }
+
     function removeLine(n) {
+      // Define a haptic vibration pattern for line removal
+      const vibrationPattern = [
+        { duration: 200, strongMagnitude: 1.0, weakMagnitude: 1.0 },
+        { duration: 50, strongMagnitude: 0.0, weakMagnitude: 0.0 },
+        { duration: 350, strongMagnitude: 0.6, weakMagnitude: 0.6 },
+        { duration: 50, strongMagnitude: 0.0, weakMagnitude: 0.0 },
+        { duration: 350, strongMagnitude: 0.5, weakMagnitude: 0.5 },
+      ];
+
+      // Loop through the vibration pattern and trigger vibrations with delays
+      vibrationPattern.forEach((step, index) => {
+        setTimeout(() => {
+          vibrateGamepad(step.duration, step.weakMagnitude, step.strongMagnitude);
+        }, step.duration);
+      });
+      
       var x, y;
       for(y = n ; y >= 0 ; --y) {
         for(x = 0 ; x < nx ; ++x)
