@@ -348,6 +348,16 @@
         current.x = x;
         current.y = y;
         invalidate();
+
+        // Check for a collision only when moving DOWN
+        if (!unoccupied(current.type, x, y + 1, current.dir) && dir === DIR.DOWN) {
+          // If a collision would occur if the piece moved one more unit down,
+          // trigger the gamepad vibration after a short delay
+          setTimeout(() => {
+              vibrateGamepad(100, 0, 1); 
+          }, 30);
+        }
+
         return true;
       }
       else {
@@ -403,7 +413,41 @@
       }
     }
 
+    // Function to trigger haptic feedback on a connected gamepad
+    function vibrateGamepad(duration = 200, weakMagnitude = 0, strongMagnitude = 0) {
+        // Get the first connected gamepad
+        const gamepad = navigator.getGamepads()[0]; 
+
+        // Check if a gamepad is connected and if it supports vibration
+        if (gamepad && gamepad.vibrationActuator) {
+            // Use the gamepad's vibration actuator to play a "dual-rumble" effect
+            gamepad.vibrationActuator.playEffect("dual-rumble", {
+                startDelay: 0,                    // Start vibration immediately
+                duration: duration,               // Duration of the vibration in milliseconds
+                weakMagnitude: weakMagnitude,     // Intensity of the weak rumble motor (0-1)
+                strongMagnitude: strongMagnitude  // Intensity of the strong rumble motor (0-1)
+            });
+        }
+        // If no gamepad is found or it doesn't support vibration, do nothing
+    }
+
     function removeLine(n) {
+      // Define a haptic vibration pattern for line removal
+      const vibrationPattern = [
+        { duration: 200, strongMagnitude: 1.0, weakMagnitude: 1.0 },
+        { duration: 50, strongMagnitude: 0.0, weakMagnitude: 0.0 },
+        { duration: 350, strongMagnitude: 0.6, weakMagnitude: 0.6 },
+        { duration: 50, strongMagnitude: 0.0, weakMagnitude: 0.0 },
+        { duration: 350, strongMagnitude: 0.5, weakMagnitude: 0.5 },
+      ];
+
+      // Loop through the vibration pattern and trigger vibrations with delays
+      vibrationPattern.forEach((step, index) => {
+        setTimeout(() => {
+          vibrateGamepad(step.duration, step.weakMagnitude, step.strongMagnitude);
+        }, step.duration);
+      });
+      
       var x, y;
       for(y = n ; y >= 0 ; --y) {
         for(x = 0 ; x < nx ; ++x)
