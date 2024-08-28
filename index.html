@@ -169,6 +169,58 @@
     //-------------------------------------------------------------------------
     // GAME LOOP
     //-------------------------------------------------------------------------
+    let lastActionTime = 0;
+    const actionDelay = 200;
+
+    
+    // Function to continuously check the state of connected gamepads
+    function pollGamepad() {
+      // Get all connected gamepads
+      const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+      // If no gamepads are connected, exit the function
+      if (!gamepads) return;
+
+      // Assume the first gamepad in the array is the one being used
+      const gp = gamepads[0]; 
+
+      // If a gamepad is detected
+      if (gp) {
+        // Get the current timestamp
+        const now = Date.now();
+
+        // Map D-Pad buttons (Arrow keys)
+        const dPadUp = gp.buttons[12].pressed; 
+        const dPadDown = gp.buttons[13].pressed;
+        const dPadLeft = gp.buttons[14].pressed;
+        const dPadRight = gp.buttons[15].pressed;
+        const buttonX = gp.buttons[0].pressed; // "X" Button 
+
+        // Prevent overly rapid consecutive actions by checking if enough time has passed
+        if (now - lastActionTime > actionDelay) {
+          // Move the Tetris piece based on button presses
+          if (dPadLeft) {
+              actions.push(DIR.LEFT);
+              lastActionTime = now; // Update the last action time
+          }
+          if (dPadRight) {
+              actions.push(DIR.RIGHT);
+              lastActionTime = now;
+          }
+          if (dPadDown) {
+              actions.push(DIR.DOWN);
+              lastActionTime = now;
+          }
+          // Rotate the Tetris piece with either Up arrow or "X" button
+          if (dPadUp || buttonX) { 
+              actions.push(DIR.UP);
+              lastActionTime = now;
+          }
+        }
+      }
+
+      // Use requestAnimationFrame for smooth animation and to continue checking gamepad state
+      requestAnimationFrame(pollGamepad);
+    }
 
     function run() {
 
@@ -188,6 +240,7 @@
       resize(); // setup all our sizing information
       reset();  // reset the per-game variables
       frame();  // start the first frame
+      pollGamepad(); // Iniciar la verificación continua del gamepad
 
     }
 
